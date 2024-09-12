@@ -32,7 +32,19 @@ pub fn parse_paragraph(input: &str) -> Result<CorrectParagraph, Vec<Simple<char>
     .repeated()
     .at_least(1)
     .collect::<String>();
-    let input_field = just('`').ignore_then(text).then_ignore(just('`'));
+    let input_field = just('`')
+        .ignore_then(
+            filter(|&ch| {
+                ch != '`'
+                    && (char::is_alphanumeric(ch)
+                        || char::is_whitespace(ch)
+                        || char::is_ascii_punctuation(&ch))
+            })
+            .repeated()
+            .collect::<String>(),
+        )
+        .then_ignore(just('`'));
+
     let paragraph_item = choice((
         text.map(|text| CorrectParagraphItem {
             input: ParagraphItem::Text(text),
@@ -46,6 +58,7 @@ pub fn parse_paragraph(input: &str) -> Result<CorrectParagraph, Vec<Simple<char>
     let paragraph = paragraph_item
         .repeated()
         .at_least(1)
+        .then_ignore(end()) // NOTE: remove when create Block parser
         .map(CorrectParagraph::from_iter);
 
     paragraph.parse(input)
