@@ -1,65 +1,83 @@
 use chumsky::prelude::*;
-use s_text_input_f::{Paragraph, ParagraphItem};
+use s_text_input_f::{Block, Blocks};
 
 #[derive(Debug)]
-struct CorrectParagraphItem {
-    input: ParagraphItem,
-    answer: Option<String>,
+pub struct CorrectBlocks {
+    pub blocks: Blocks,
+    pub answer: Vec<Vec<String>>,
 }
-#[derive(Debug)]
-pub struct CorrectParagraph {
-    pub input: Paragraph,
-    pub answer: Vec<String>,
-}
-impl FromIterator<CorrectParagraphItem> for CorrectParagraph {
-    fn from_iter<T: IntoIterator<Item = CorrectParagraphItem>>(iter: T) -> Self {
-        let (input, answers): (Vec<_>, Vec<_>) = iter
-            .into_iter()
-            .map(|CorrectParagraphItem { input, answer }| (input, answer))
-            .unzip();
-        let answer = answers.into_iter().flatten().collect::<Vec<_>>();
-        Self { input, answer }
+impl FromIterator<CorrectBlock> for CorrectBlocks {
+    fn from_iter<T: IntoIterator<Item = CorrectBlock>>(iter: T) -> Self {
+        let (blocks, answer) = iter.into_iter().map(|x| (x.block, x.answer)).unzip();
+        Self { blocks, answer }
     }
 }
 
-pub fn parse_paragraph(input: &str) -> Result<CorrectParagraph, Vec<Simple<char>>> {
-    let text = filter::<_, _, Simple<char>>(|&ch| {
-        ch != '`'
-            && (char::is_alphanumeric(ch)
-                || char::is_whitespace(ch)
-                || char::is_ascii_punctuation(&ch))
-    })
-    .repeated()
-    .at_least(1)
-    .collect::<String>();
-    let input_field = just('`')
-        .ignore_then(
-            filter(|&ch| {
-                ch != '`'
-                    && (char::is_alphanumeric(ch)
-                        || char::is_whitespace(ch)
-                        || char::is_ascii_punctuation(&ch))
-            })
-            .repeated()
-            .collect::<String>(),
-        )
-        .then_ignore(just('`'));
+#[derive(Debug)]
+pub struct CorrectBlock {
+    pub block: Block,
+    pub answer: Vec<String>,
+}
+impl From<paragraph::CorrectParagraph> for CorrectBlock {
+    fn from(value: paragraph::CorrectParagraph) -> Self {
+        Self {
+            block: Block::Paragraph(value.input),
+            answer: value.answer,
+        }
+    }
+}
+impl From<one_of::CorrectOneOf> for CorrectBlock {
+    fn from(value: one_of::CorrectOneOf) -> Self {
+        Self {
+            block: Block::OneOf(value.variants),
+            answer: vec![value.correct.to_string()],
+        }
+    }
+}
+impl From<any_of::CorrectAnyOf> for CorrectBlock {
+    fn from(value: any_of::CorrectAnyOf) -> Self {
+        Self {
+            block: Block::AnyOf(value.variants),
+            answer: value.correct.into_iter().map(|x| x.to_string()).collect(),
+        }
+    }
+}
 
-    let paragraph_item = choice((
-        text.map(|text| CorrectParagraphItem {
-            input: ParagraphItem::Text(text),
-            answer: None,
-        }),
-        input_field.map(|text| CorrectParagraphItem {
-            input: ParagraphItem::Placeholder,
-            answer: Some(text),
-        }),
-    ));
-    let paragraph = paragraph_item
-        .repeated()
+pub fn parse_paragraph(input: &str) -> Result<paragraph::CorrectParagraph, Vec<Simple<char>>> {
+    paragraph::paragraph_parser()
+        .then_ignore(end())
+        .parse(input)
+}
+pub fn parse_one_of(input: &str) -> Result<one_of::CorrectOneOf, Vec<Simple<char>>> {
+    one_of::one_of_parser().then_ignore(end()).parse(input)
+}
+pub fn parse_any_of(input: &str) -> Result<any_of::CorrectAnyOf, Vec<Simple<char>>> {
+    any_of::any_of_parser().then_ignore(end()).parse(input)
+}
+
+pub mod any_of;
+pub mod one_of;
+pub mod paragraph;
+
+pub fn parse_block(input: &str) -> Result<CorrectBlock, Vec<Simple<char>>> {
+    block_parser().then_ignore(end()).parse(input)
+}
+
+fn block_parser() -> impl Parser<char, CorrectBlock, Error = Simple<char>> {
+    choice((
+        any_of::any_of_parser().map(CorrectBlock::from),
+        one_of::one_of_parser().map(CorrectBlock::from),
+        paragraph::paragraph_parser().map(CorrectBlock::from),
+        todo(),
+    ))
+}
+
+pub fn parse_blocks(input: &str) -> Result<CorrectBlocks, Vec<Simple<char>>> {
+    blocks_parser().then_ignore(end()).parse(input)
+}
+fn blocks_parser() -> impl Parser<char, CorrectBlocks, Error = Simple<char>> {
+    block_parser()
+        .separated_by(just('\n').repeated().at_least(1))
         .at_least(1)
-        .then_ignore(end()) // NOTE: remove when create Block parser
-        .map(CorrectParagraph::from_iter);
-
-    paragraph.parse(input)
+        .collect()
 }
