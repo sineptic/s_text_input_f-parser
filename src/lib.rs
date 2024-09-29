@@ -68,7 +68,7 @@ fn block_parser() -> impl Parser<char, CorrectBlock, Error = Simple<char>> {
         any_of::any_of_parser().map(CorrectBlock::from),
         one_of::one_of_parser().map(CorrectBlock::from),
         paragraph::paragraph_parser().map(CorrectBlock::from),
-        todo(),
+        // TODO: Order
     ))
 }
 
