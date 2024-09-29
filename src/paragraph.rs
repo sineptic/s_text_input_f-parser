@@ -63,4 +63,5 @@ pub(crate) fn paragraph_parser() -> impl Parser<char, CorrectParagraph, Error = 
         .repeated()
         .at_least(1)
         .map(CorrectParagraph::from_iter)
+        .then_ignore(choice((just('\n').ignored(), end().ignored())))
 }

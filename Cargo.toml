@@ -3,7 +3,7 @@ name = "s_text_input_f-parser"
 description = "parser for sineptic text input format"
 license = "MIT"
 
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 
 [dependencies]
