@@ -1,12 +1,7 @@
 use chumsky::prelude::*;
-use s_text_input_f::{Block, Blocks};
+use s_text_input_f::{Block, BlocksWithAnswer};
 
-#[derive(Debug)]
-pub struct CorrectBlocks {
-    pub blocks: Blocks,
-    pub answer: Vec<Vec<String>>,
-}
-impl FromIterator<CorrectBlock> for CorrectBlocks {
+impl FromIterator<CorrectBlock> for BlocksWithAnswer {
     fn from_iter<T: IntoIterator<Item = CorrectBlock>>(iter: T) -> Self {
         let (blocks, answer) = iter.into_iter().map(|x| (x.block, x.answer)).unzip();
         Self { blocks, answer }
@@ -72,10 +67,10 @@ fn block_parser() -> impl Parser<char, CorrectBlock, Error = Simple<char>> {
     ))
 }
 
-pub fn parse_blocks(input: &str) -> Result<CorrectBlocks, Vec<Simple<char>>> {
+pub fn parse_blocks(input: &str) -> Result<BlocksWithAnswer, Vec<Simple<char>>> {
     blocks_parser().then_ignore(end()).parse(input)
 }
-fn blocks_parser() -> impl Parser<char, CorrectBlocks, Error = Simple<char>> {
+fn blocks_parser() -> impl Parser<char, BlocksWithAnswer, Error = Simple<char>> {
     block_parser()
         .separated_by(just('\n').repeated().at_least(1))
         .at_least(1)
